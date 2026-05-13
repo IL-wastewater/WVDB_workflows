@@ -1,0 +1,14 @@
+name: preprocessing
+channels:
+  - conda-forge
+  - bioconda
+  - default
+dependencies:
+  - bioconda::fastp
+  - bioconda::bbmap
+  - bioconda::sra-human-scrubber
+  - bioconda::seqkit
+  - bioconda::seqtk
+  - bioconda::gottcha2
+  - bioconda::checkv
+  - bioconda::genomad
