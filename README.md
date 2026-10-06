@@ -102,3 +102,5 @@ Funding was also provided to Rose Kantor by Inkfish, via the University of Misso
 This project aims to produce a database of viral genomes from wastewater that is iteratively updated and publicly available.
 
 ### Future updates
+
+### LANL Copyright reference: O5111
