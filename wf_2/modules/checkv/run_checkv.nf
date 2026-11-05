@@ -1,7 +1,7 @@
 process CHECKV {
     tag "${id}"
     conda "${params.checkv_env}"
-    publishDir "${output_dir}", mode: 'move', pattern: "checkv_out"
+    publishDir { output_dir }, mode: 'move', pattern: 'checkv_out'
 
     input:
     tuple val(id), path(assembly_500), val(output_dir)

@@ -1,6 +1,6 @@
 process MEGAHIT {
     tag "${id}"
-    publishDir "${output_dir}", mode: 'link', pattern: "{${id}.contigs.fa,${id}.log}"
+    publishDir { output_dir }, mode: 'link', pattern: { "{${id}.contigs.fa,${id}.log}" }
 
     input:
     tuple val(id), path(reads), val(output_dir)

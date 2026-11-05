@@ -1,9 +1,9 @@
 process GENOMAD {
     tag "${id}"
     conda "${params.genomad_env}"
-    publishDir "${output_dir}", mode: 'move', pattern: "${id}*"
+    publishDir { output_dir }, mode: 'move', pattern: { "${id}*" }
 
-    beforeScript = """
+    beforeScript """
         export PATH=${params.genomad_env}/bin:\$PATH
     """
 

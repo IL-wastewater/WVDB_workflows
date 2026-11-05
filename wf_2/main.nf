@@ -7,46 +7,70 @@ include { GENOMAD } from './modules/genomad/run_genomad.nf'
 include { CHMOD_OUTPUT } from './modules/permissions/run_chmod.nf'
 include { WRITE_FAILURE_LIST } from './modules/failures/write_failure_list.nf'
 
-def metadata_path = params.m ?: params.metadata
+workflow {
+    def metadata_path = params.m ?: params.metadata
+    def metadata_file = file(metadata_path, checkIfExists: true)
+    def metadata_rows = metadata_file
+        .readLines()
+        .findAll { it?.trim() }
 
-samples_ch = Channel
-    .fromPath(metadata_path, checkIfExists: true)
-    .splitCsv(header: true, sep: '\t')
-    .flatMap { row ->
-        def sample_name = row.'specimen collector sample ID'?.toString()?.trim()
-        def batch_name = row.Experiment?.toString()?.trim()
+    if (metadata_rows.size() < 2) {
+        throw new IllegalArgumentException("Metadata file must contain a header and at least one data row: ${metadata_path}")
+    }
 
-        if (!sample_name || sample_name == 'nan' || sample_name == 'NaN') {
+    def metadata_header = metadata_rows[0].split('\t', -1)
+    def experiment_idx = metadata_header.findIndexOf { it == 'Experiment' }
+
+    if (experiment_idx < 0) {
+        throw new IllegalArgumentException('Metadata file is missing required column: Experiment')
+    }
+
+    def unique_experiments = metadata_rows
+        .drop(1)
+        .collect { line -> line.split('\t', -1)[experiment_idx]?.trim() }
+        .findAll { it && it != 'nan' && it != 'NaN' }
+        .unique()
+
+    if (unique_experiments.size() != 1) {
+        throw new IllegalArgumentException("Metadata file must contain exactly one non-empty Experiment per run. Found: ${unique_experiments}")
+    }
+
+    samples_ch = channel
+        .fromPath(metadata_path, checkIfExists: true)
+        .splitCsv(header: true, sep: '\t')
+        .flatMap { row ->
+            def sample_name = row.'specimen collector sample ID'?.toString()?.trim()
+            def batch_name = row.Experiment?.toString()?.trim()
+
+            if (!sample_name || sample_name == 'nan' || sample_name == 'NaN') {
+                return []
+            }
+
+            if (!batch_name || batch_name == 'nan' || batch_name == 'NaN') {
+                batch_name = sample_name
+            }
+
+            return [tuple(batch_name, sample_name)]
+        }
+        .unique()
+
+    reads_ch = samples_ch.flatMap { batch_name, sample_name ->
+        def sample_dir = "${params.read_root}/${batch_name}/${params.read_subdir}/${sample_name}"
+        def output_dir = "${params.read_root}/${batch_name}/${params.output_subdir}/${sample_name}"
+        def reads = file("${sample_dir}/${sample_name}${params.final_reads_suffix}")
+
+        if (!reads.exists()) {
             return []
         }
 
-        if (!batch_name || batch_name == 'nan' || batch_name == 'NaN') {
-            batch_name = sample_name
+        return [tuple(sample_name, reads, output_dir)]
+    }
+
+    output_dirs_ch = samples_ch
+        .map { batch_name, sample_name ->
+            "${params.read_root}/${batch_name}/${params.output_subdir}"
         }
-
-        return [tuple(batch_name, sample_name)]
-    }
-    .unique()
-
-reads_ch = samples_ch.flatMap { batch_name, sample_name ->
-    def sample_dir = "${params.read_root}/${batch_name}/${params.read_subdir}/${sample_name}"
-    def output_dir = "${params.read_root}/${batch_name}/${params.output_subdir}/${sample_name}"
-    def reads = file("${sample_dir}/${sample_name}${params.final_reads_suffix}")
-
-    if (!reads.exists()) {
-        return []
-    }
-
-    return [tuple(sample_name, reads, output_dir)]
-}
-
-output_dirs_ch = samples_ch
-    .map { batch_name, sample_name ->
-        "${params.read_root}/${batch_name}/${params.output_subdir}"
-    }
-    .unique()
-
-workflow {
+        .unique()
     MEGAHIT(reads_ch)
 
     POST_PROCESS(MEGAHIT.out.ok)

@@ -1,6 +1,6 @@
 process POST_PROCESS {
     tag "${id}"
-    publishDir "${output_dir}", mode: 'link', pattern: "{${id}_contigs_min500.fa,${id}_contigs_min2000.fa}"
+    publishDir { output_dir }, mode: 'link', pattern: { "{${id}_contigs_min500.fa,${id}_contigs_min2000.fa}" }
 
     input:
     tuple val(id), path(assembly), path(megahit_log), val(output_dir)
